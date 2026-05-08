@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}ConspiracyHub{% endblock %}</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <nav class="navbar">
+            <a href="/" class="logo">&#128302; ConspiracyHub</a>
+            <ul class="nav-links">
+                <li><a href="/">Inicio</a></li>
+                <li><a href="/stories">Historias</a></li>
+                <li><a href="/stories?favorite=true">&#9733; Favoritas</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer>
+        <p>ConspiracyHub — Recopilador de teorias conspirativas, historias de terror y fenomenos paranormales.</p>
+        <p class="disclaimer">El contenido es extraido de fuentes publicas (Reddit, 4chan). No se verifica su veracidad.</p>
+    </footer>
+
+    <script src="/static/script.js"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

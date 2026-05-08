@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}ConspiracyHub — Historias{% endblock %}
+{% block content %}
+
+<section class="page-header">
+    <h1>Historias Recopiladas</h1>
+    <p class="subtitle">{{ total }} historias encontradas</p>
+</section>
+
+<form method="GET" action="/stories" class="filters">
+    <div class="filter-row">
+        <select name="category" class="filter-select">
+            {% for val, label in categories %}
+            <option value="{{ val }}" {% if current_category == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+
+        <select name="source" class="filter-select">
+            <option value="all" {% if current_source == 'all' %}selected{% endif %}>Todas las fuentes</option>
+            <option value="reddit" {% if current_source == 'reddit' %}selected{% endif %}>Reddit</option>
+            <option value="4chan" {% if current_source == '4chan' %}selected{% endif %}>4chan</option>
+        </select>
+
+        <input type="text" name="search" placeholder="Buscar..." value="{{ current_search }}" class="filter-input">
+
+        <label class="checkbox-label">
+            <input type="checkbox" name="favorite" value="true" {% if favorite_only %}checked{% endif %}>
+            Solo favoritas
+        </label>
+
+        <button type="submit" class="btn btn-primary">Filtrar</button>
+    </div>
+</form>
+
+{% if stories %}
+<div class="story-grid">
+    {% for story in stories %}
+    <a href="/stories/{{ story.id }}" class="story-card">
+        <div class="story-meta">
+            <span class="badge badge-{{ story.source }}">{{ story.source }}</span>
+            <span class="badge badge-{{ story.category }}">{{ story.category }}</span>
+            {% if story.is_favorite %}<span class="star">&#9733;</span>{% endif %}
+        </div>
+        <h3>{{ story.title }}</h3>
+        <p>{{ story.content[:250] }}{% if story.content|length > 250 %}...{% endif %}</p>
+        <div class="story-footer">
+            <span>{{ story.score }} pts</span>
+            <span>{{ story.comment_count }} com.</span>
+            {% if story.sub_source %}<span>r/{{ story.sub_source }}</span>{% endif %}
+            {% if story.author %}<span>por {{ story.author }}</span>{% endif %}
+        </div>
+    </a>
+    {% endfor %}
+</div>
+
+{% if total_pages > 1 %}
+<nav class="pagination">
+    {% if page > 1 %}
+    <a href="/stories?category={{ current_category }}&source={{ current_source }}&search={{ current_search }}&favorite={{ favorite_only }}&page={{ page - 1 }}" class="btn btn-outline">&laquo; Anterior</a>
+    {% endif %}
+
+    {% for p in range(1, total_pages + 1) %}
+        {% if p == page %}
+        <span class="btn btn-primary">{{ p }}</span>
+        {% elif p <= 3 or p > total_pages - 3 or (p >= page - 1 and p <= page + 1) %}
+        <a href="/stories?category={{ current_category }}&source={{ current_source }}&search={{ current_search }}&favorite={{ favorite_only }}&page={{ p }}" class="btn btn-outline">{{ p }}</a>
+        {% elif p == 4 or p == total_pages - 3 %}
+        <span class="pagination-dots">...</span>
+        {% endif %}
+    {% endfor %}
+
+    {% if page < total_pages %}
+    <a href="/stories?category={{ current_category }}&source={{ current_source }}&search={{ current_search }}&favorite={{ favorite_only }}&page={{ page + 1 }}" class="btn btn-outline">Siguiente &raquo;</a>
+    {% endif %}
+</nav>
+{% endif %}
+
+{% else %}
+<div class="empty-state">
+    <p>&#128123; No hay historias que coincidan con los filtros.</p>
+    <p>Prueba a <a href="/fetch">escanear</a> nuevo contenido o ajusta los filtros.</p>
+</div>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}ConspiracyHub — Inicio{% endblock %}
+{% block content %}
+
+<section class="hero">
+    <h1>&#128302; ConspiracyHub</h1>
+    <p class="tagline">
+        Explora el lado oscuro de internet. Teorias conspirativas, historias de terror,
+        encuentros paranormales y creepypastas recopilados de foros como Reddit y 4chan.
+    </p>
+</section>
+
+{% if fetch_result %}
+<div class="fetch-result">
+    <h3>Resultado del escaneo</h3>
+    {% if fetch_errors %}
+        <div class="alert alert-error">
+            {% for e in fetch_errors %}<p>{{ e }}</p>{% endfor %}
+        </div>
+    {% endif %}
+    <div class="fetch-grid">
+        {% if fetch_result.reddit.found > 0 %}
+        <div class="fetch-card">
+            <span class="fetch-source">Reddit</span>
+            <span class="fetch-count">{{ fetch_result.reddit.found }} encontrados</span>
+            <span class="fetch-new">{{ fetch_result.reddit.new }} nuevos</span>
+        </div>
+        {% endif %}
+        {% if fetch_result["4chan"].found > 0 %}
+        <div class="fetch-card">
+            <span class="fetch-source">4chan</span>
+            <span class="fetch-count">{{ fetch_result["4chan"].found }} encontrados</span>
+            <span class="fetch-new">{{ fetch_result["4chan"].new }} nuevos</span>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<section class="stats">
+    <h2>Estadisticas</h2>
+    <div class="stats-grid">
+        <div class="stat-card pulse">
+            <span class="stat-number">{{ stats.total }}</span>
+            <span class="stat-label">Historias Totales</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-number">{{ stats.favorites }}</span>
+            <span class="stat-label">Favoritas</span>
+        </div>
+        {% if stats.last_fetch %}
+        <div class="stat-card">
+            <span class="stat-number small">{{ stats.last_fetch.fetched_at[:10] }}</span>
+            <span class="stat-label">Ultimo escaneo</span>
+        </div>
+        {% endif %}
+    </div>
+</section>
+
+{% if stats.by_category %}
+<section class="stats">
+    <h2>Por Categoria</h2>
+    <div class="stats-grid">
+        {% for cat, count in stats.by_category.items() %}
+        <div class="stat-card cat-{{ cat }}">
+            <span class="stat-number">{{ count }}</span>
+            <span class="stat-label">{{ cat }}</span>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+<section class="fetch-section">
+    <h2>Buscar nuevas historias</h2>
+    <p class="fetch-hint">Presiona el boton para escanear Reddit y 4chan en busca de nuevo contenido.</p>
+    <form method="POST" action="/fetch" class="fetch-form">
+        <label class="checkbox-label">
+            <input type="checkbox" name="reddit" value="true" checked>
+            Reddit (r/conspiracy, r/nosleep, r/Paranormal...)
+        </label>
+        <label class="checkbox-label">
+            <input type="checkbox" name="chan" value="true" checked>
+            4chan (/x/ Paranormal)
+        </label>
+        <button type="submit" class="btn btn-primary btn-lg" id="fetch-btn">
+            &#128269; Escanear ahora
+        </button>
+    </form>
+</section>
+
+{% if recent_stories %}
+<section class="recent">
+    <h2>Historias Recientes</h2>
+    <div class="story-grid">
+        {% for story in recent_stories %}
+        <a href="/stories/{{ story.id }}" class="story-card">
+            <div class="story-meta">
+                <span class="badge badge-{{ story.source }}">{{ story.source }}</span>
+                <span class="badge badge-{{ story.category }}">{{ story.category }}</span>
+                {% if story.is_favorite %}<span class="star">&#9733;</span>{% endif %}
+            </div>
+            <h3>{{ story.title }}</h3>
+            <p>{{ story.content[:200] }}{% if story.content|length > 200 %}...{% endif %}</p>
+            <div class="story-footer">
+                <span>{{ story.score }} pts</span>
+                <span>{{ story.comment_count }} comentarios</span>
+                {% if story.author %}<span>por {{ story.author }}</span>{% endif %}
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    <a href="/stories" class="btn btn-outline">Ver todas</a>
+</section>
+{% endif %}
+
+{% endblock %}
