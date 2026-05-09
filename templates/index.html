@@ -6,7 +6,7 @@
     <h1>&#128302; ConspiracyHub</h1>
     <p class="tagline">
         Explora el lado oscuro de internet. Teorias conspirativas, historias de terror,
-        encuentros paranormales y creepypastas recopilados de foros como Reddit y 4chan.
+        encuentros paranormales y creepypastas recopilados de Reddit.
     </p>
 </section>
 
@@ -19,21 +19,15 @@
         </div>
     {% endif %}
     <div class="fetch-grid">
-        {% if fetch_result.reddit.found > 0 %}
         <div class="fetch-card">
             <span class="fetch-source">Reddit</span>
             <span class="fetch-count">{{ fetch_result.reddit.found }} encontrados</span>
             <span class="fetch-new">{{ fetch_result.reddit.new }} nuevos</span>
         </div>
-        {% endif %}
-        {% if fetch_result["4chan"].found > 0 %}
-        <div class="fetch-card">
-            <span class="fetch-source">4chan</span>
-            <span class="fetch-count">{{ fetch_result["4chan"].found }} encontrados</span>
-            <span class="fetch-new">{{ fetch_result["4chan"].new }} nuevos</span>
-        </div>
-        {% endif %}
     </div>
+    {% if fetch_result.reddit.found == 0 and not fetch_errors %}
+    <p>No se encontraron historias nuevas en este momento. Intenta de nuevo mas tarde.</p>
+    {% endif %}
 </div>
 {% endif %}
 
@@ -73,16 +67,8 @@
 
 <section class="fetch-section">
     <h2>Buscar nuevas historias</h2>
-    <p class="fetch-hint">Presiona el boton para escanear Reddit y 4chan en busca de nuevo contenido.</p>
+    <p class="fetch-hint">Presiona el boton para escanear Reddit en busca de nuevo contenido.</p>
     <form method="POST" action="/fetch" class="fetch-form">
-        <label class="checkbox-label">
-            <input type="checkbox" name="reddit" value="true" checked>
-            Reddit (r/conspiracy, r/nosleep, r/Paranormal...)
-        </label>
-        <label class="checkbox-label">
-            <input type="checkbox" name="chan" value="true" checked>
-            4chan (/x/ Paranormal)
-        </label>
         <button type="submit" class="btn btn-primary btn-lg" id="fetch-btn">
             &#128269; Escanear ahora
         </button>

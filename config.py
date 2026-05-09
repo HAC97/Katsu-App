@@ -23,15 +23,9 @@ SUBREDDITS = {
     "UnsolvedMysteries": "conspiracy",
     "DarkTales": "horror",
 }
-
-CHAN_BOARDS = {
-    "x": "paranormal",
-}
-
 CATEGORIES = [
     ("all", "Todas"),
     ("conspiracy", "Conspiraciones"),
     ("horror", "Historias de Terror"),
     ("paranormal", "Paranormal"),
-    ("creepypasta", "Creepypastas"),
 ]

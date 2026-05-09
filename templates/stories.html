@@ -18,7 +18,6 @@
         <select name="source" class="filter-select">
             <option value="all" {% if current_source == 'all' %}selected{% endif %}>Todas las fuentes</option>
             <option value="reddit" {% if current_source == 'reddit' %}selected{% endif %}>Reddit</option>
-            <option value="4chan" {% if current_source == '4chan' %}selected{% endif %}>4chan</option>
         </select>
 
         <input type="text" name="search" placeholder="Buscar..." value="{{ current_search }}" class="filter-input">

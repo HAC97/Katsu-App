@@ -23,7 +23,7 @@ def fetch_subreddit(
     posts = []
     url = f"https://www.reddit.com/r/{subreddit}/{sort}.json?limit={limit}&raw_json=1"
     try:
-        resp = SESSION.get(url, timeout=30)
+        resp = SESSION.get(url, timeout=15)
         resp.raise_for_status()
         data = resp.json()
         for child in data.get("data", {}).get("children", []):

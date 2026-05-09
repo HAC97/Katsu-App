@@ -34,11 +34,9 @@
 
     <div class="story-content">
         {% if story.content %}
-            {% for paragraph in story.content.split('\n') %}
+            {% for paragraph in story.content.strip().split('\n') %}
                 {% if paragraph.strip() %}
                     <p>{{ paragraph }}</p>
-                {% else %}
-                    <br>
                 {% endif %}
             {% endfor %}
         {% else %}

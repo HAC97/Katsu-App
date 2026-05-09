@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, Request, Form, Query
-from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -20,8 +20,7 @@ from database import (
     log_fetch,
 )
 from reddit_fetcher import fetch_all_reddit, fetch_subreddit
-from chan_fetcher import fetch_all_boards, fetch_catalog
-from config import SUBREDDITS, CHAN_BOARDS, CATEGORIES
+from config import SUBREDDITS, CATEGORIES
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -43,7 +42,7 @@ templates = Jinja2Templates(directory=BASE_DIR / "templates")
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     stats = get_stats()
-    recent_stories, _ = get_stories(limit=12)
+    recent_stories, _ = get_stories(limit=12, source="reddit")
     return templates.TemplateResponse(
         "index.html",
         {
@@ -115,7 +114,7 @@ async def story_toggle_favorite(story_id: int):
 
 async def _run_fetch_reddit(subreddits: dict) -> tuple:
     all_posts = []
-    sem = asyncio.Semaphore(3)
+    sem = asyncio.Semaphore(6)
 
     async def fetch_one(sub_name, category):
         async with sem:
@@ -135,83 +134,39 @@ async def _run_fetch_reddit(subreddits: dict) -> tuple:
 
     return all_posts
 
-
-async def _run_fetch_4chan(boards: dict) -> tuple:
-    all_posts = []
-
-    async def fetch_one(board, category):
-        posts = await asyncio.to_thread(fetch_catalog, board)
-        for p in posts:
-            p["category"] = category
-        return posts
-
-    tasks = [fetch_one(board, cat) for board, cat in boards.items()]
-    results_list = await asyncio.gather(*tasks, return_exceptions=True)
-
-    for result in results_list:
-        if isinstance(result, Exception):
-            logger.error(f"4chan fetch error: {result}")
-        else:
-            all_posts.extend(result)
-
-    return all_posts
-
-
 @app.post("/fetch")
-async def trigger_fetch(
-    request: Request,
-    reddit: bool = Form(True),
-    chan: bool = Form(True),
-):
-    results = {"reddit": {"found": 0, "new": 0}, "4chan": {"found": 0, "new": 0}}
+async def trigger_fetch(request: Request):
+    results = {"reddit": {"found": 0, "new": 0}}
     errors = []
 
-    if reddit:
-        try:
-            posts = await _run_fetch_reddit(SUBREDDITS)
-            results["reddit"]["found"] = len(posts)
-            new = 0
-            for post in posts:
-                sid = await asyncio.to_thread(insert_story, post)
-                if sid:
-                    new += 1
-            results["reddit"]["new"] = new
-            await asyncio.to_thread(log_fetch, "reddit", len(posts), new)
-        except Exception as e:
-            logger.exception("Reddit fetch failed")
-            errors.append(f"Reddit: {e}")
-            await asyncio.to_thread(log_fetch, "reddit", 0, 0, "error", str(e))
+    try:
+        posts = await _run_fetch_reddit(SUBREDDITS)
+        results["reddit"]["found"] = len(posts)
+        new = 0
+        for post in posts:
+            sid = await asyncio.to_thread(insert_story, post)
+            if sid:
+                new += 1
+        results["reddit"]["new"] = new
+        await asyncio.to_thread(log_fetch, "reddit", len(posts), new)
+    except Exception as e:
+        logger.exception("Reddit fetch failed")
+        errors.append(f"Reddit: {e}")
+        await asyncio.to_thread(log_fetch, "reddit", 0, 0, "error", str(e))
 
-    if chan:
-        try:
-            posts = await _run_fetch_4chan(CHAN_BOARDS)
-            results["4chan"]["found"] = len(posts)
-            new = 0
-            for post in posts:
-                sid = await asyncio.to_thread(insert_story, post)
-                if sid:
-                    new += 1
-            results["4chan"]["new"] = new
-            await asyncio.to_thread(log_fetch, "4chan", len(posts), new)
-        except Exception as e:
-            logger.exception("4chan fetch failed")
-            errors.append(f"4chan: {e}")
-            await asyncio.to_thread(log_fetch, "4chan", 0, 0, "error", str(e))
-
-    if errors:
-        return templates.TemplateResponse(
-            "index.html",
-            {
-                "request": request,
-                "stats": get_stats(),
-                "recent_stories": [],
-                "categories": CATEGORIES,
-                "fetch_result": results,
-                "fetch_errors": errors,
-            },
-        )
-
-    return RedirectResponse(url="/stories", status_code=303)
+    stats = get_stats()
+    recent_stories, _ = get_stories(limit=12)
+    return templates.TemplateResponse(
+        "index.html",
+        {
+            "request": request,
+            "stats": stats,
+            "recent_stories": recent_stories,
+            "categories": CATEGORIES,
+            "fetch_result": results,
+            "fetch_errors": errors,
+        },
+    )
 
 
 @app.post("/api/clear")
