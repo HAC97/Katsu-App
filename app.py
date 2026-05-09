@@ -30,9 +30,10 @@ BASE_DIR = Path(__file__).resolve().parent
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    init_db()
     yield
 
+# Ejecutamos init_db directamente para que funcione en WSGI (PythonAnywhere)
+init_db()
 
 app = FastAPI(title="ConspiracyHub", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")

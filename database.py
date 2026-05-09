@@ -43,7 +43,6 @@ CREATE INDEX IF NOT EXISTS idx_stories_favorite ON stories(is_favorite);
 def get_db() -> sqlite3.Connection:
     conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
     return conn
 
 

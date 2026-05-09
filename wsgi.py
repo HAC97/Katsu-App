@@ -8,6 +8,7 @@ if project_dir not in sys.path:
 os.environ.setdefault("DATABASE_PATH", os.path.join(project_dir, "stories.db"))
 
 from app import app
-from a2wsgi import WSGIMiddleware
+# pyrefly: ignore [missing-import]
+from a2wsgi import ASGIMiddleware
 
-application = WSGIMiddleware(app)
+application = ASGIMiddleware(app)
