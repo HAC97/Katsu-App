@@ -19,7 +19,9 @@
     --transition: 0.2s ease;
 }
 
-*, *::before, *::after {
+*,
+*::before,
+*::after {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
@@ -174,9 +176,17 @@ body {
     text-transform: capitalize;
 }
 
-.cat-conspiracy .stat-number { color: var(--accent-red); }
-.cat-horror .stat-number { color: var(--accent-orange); }
-.cat-paranormal .stat-number { color: var(--accent-purple); }
+.cat-conspiracy .stat-number {
+    color: var(--accent-red);
+}
+
+.cat-horror .stat-number {
+    color: var(--accent-orange);
+}
+
+.cat-paranormal .stat-number {
+    color: var(--accent-purple);
+}
 
 /* Fetch Section */
 .fetch-section {
@@ -538,15 +548,16 @@ body {
     background: var(--bg-secondary);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
-    padding: 1.25rem 1.5rem;
-    line-height: 1.7;
+    padding: 5rem 3rem;
+    line-height: 1.5;
     color: var(--text-primary);
-    font-size: 1.05rem;
+    font-size: 1rem;
     word-wrap: break-word;
 }
 
 .story-content p {
-    margin-bottom: 0.6rem;
+    margin-top: 0;
+    margin-bottom: 0.3rem;
     white-space: pre-wrap;
 }
 
@@ -638,10 +649,44 @@ footer {
 
 /* Loading animation for fetch */
 @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.6; }
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.6;
+    }
 }
 
 .pulse {
     animation: pulse 2s infinite;
+}
+
+/* Progress Bar */
+.progress-bar-bg {
+    width: 100%;
+    height: 6px;
+    background: var(--bg-card);
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    position: relative;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    width: 40%;
+    background: var(--accent-green);
+    border-radius: 10px;
+    position: absolute;
+    left: -40%;
+    animation: indeterminate-progress 1.5s infinite linear;
+    box-shadow: 0 0 10px rgba(51, 255, 119, 0.5);
+}
+
+@keyframes indeterminate-progress {
+    0% { left: -40%; }
+    100% { left: 100%; }
 }

@@ -34,11 +34,11 @@
 
     <div class="story-content">
         {% if story.content %}
-            {% for paragraph in story.content.strip().split('\n') %}
-                {% if paragraph.strip() %}
-                    <p>{{ paragraph }}</p>
-                {% endif %}
-            {% endfor %}
+            {%- for paragraph in story.content.strip().split('\n') -%}
+                {%- if paragraph.strip() -%}
+                    <p>{{ paragraph.strip() }}</p>
+                {%- endif -%}
+            {%- endfor -%}
         {% else %}
             <p class="no-content"><em>Esta historia no tiene contenido de texto. <a href="{{ story.source_url }}" target="_blank" rel="noopener">Ver en la fuente original</a>.</em></p>
         {% endif %}

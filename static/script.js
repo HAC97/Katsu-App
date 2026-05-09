@@ -1,10 +1,17 @@
 document.addEventListener('DOMContentLoaded', () => {
+    const fetchForm = document.querySelector('.fetch-form');
     const fetchBtn = document.getElementById('fetch-btn');
-    if (fetchBtn) {
-        fetchBtn.addEventListener('click', function() {
-            this.textContent = 'Escaneando...';
-            this.disabled = true;
-            this.style.opacity = '0.7';
+    const loadingContainer = document.getElementById('loading-container');
+    
+    if (fetchForm && fetchBtn) {
+        fetchForm.addEventListener('submit', function() {
+            fetchBtn.textContent = 'Escaneando...';
+            fetchBtn.style.opacity = '0.7';
+            setTimeout(() => { fetchBtn.disabled = true; }, 10);
+            
+            if (loadingContainer) {
+                loadingContainer.style.display = 'block';
+            }
         });
     }
 
