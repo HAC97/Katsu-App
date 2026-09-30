@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
+from urllib.parse import parse_qsl, urlencode, urlsplit
 
 from fastapi import FastAPI, Request, Form, Query
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -38,6 +39,81 @@ init_db()
 app = FastAPI(title="ConspiracyHub", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
+
+CATEGORY_LABELS = {
+    "conspiracy": "Conspiración",
+    "horror": "Terror",
+    "paranormal": "Paranormal",
+}
+WORDS_PER_MINUTE = 200
+
+
+def build_query(category="all", source="all", search="", favorite=False, page=1) -> str:
+    """Query string for /stories with defaults omitted and values URL-encoded."""
+    params = {}
+    if category != "all":
+        params["category"] = category
+    if source != "all":
+        params["source"] = source
+    if search:
+        params["search"] = search
+    if favorite:
+        params["favorite"] = "true"
+    if page > 1:
+        params["page"] = page
+    return "/stories?" + urlencode(params) if params else "/stories"
+
+
+def category_label(value: str) -> str:
+    return CATEGORY_LABELS.get(value, value.capitalize() if value else "")
+
+
+def format_datetime(value) -> str:
+    """'2026-09-29T14:03:11' or '2026-09-29 14:03:11' -> '29/09/2026 14:03'."""
+    if not value:
+        return "?"
+    try:
+        return datetime.fromisoformat(str(value)).strftime("%d/%m/%Y %H:%M")
+    except ValueError:
+        return str(value)[:10]
+
+
+def format_date(value) -> str:
+    return format_datetime(value)[:10] if value else "?"
+
+
+def reading_minutes(text) -> int:
+    return max(1, round(len((text or "").split()) / WORDS_PER_MINUTE))
+
+
+def safe_back_url(referer: Optional[str]) -> str:
+    """Return the listing URL the user came from; anything else falls back to /stories."""
+    if referer:
+        parts = urlsplit(referer)
+        if parts.path == "/stories":
+            return build_query(**_parse_listing_query(parts.query))
+    return "/stories"
+
+
+def _parse_listing_query(query: str) -> dict:
+    q = dict(parse_qsl(query))
+    try:
+        page = max(1, int(q.get("page", 1)))
+    except ValueError:
+        page = 1
+    return {
+        "category": q.get("category", "all"),
+        "source": q.get("source", "all"),
+        "search": q.get("search", ""),
+        "favorite": q.get("favorite", "").lower() == "true",
+        "page": page,
+    }
+
+
+templates.env.filters["category_label"] = category_label
+templates.env.filters["fmt_datetime"] = format_datetime
+templates.env.filters["fmt_date"] = format_date
+templates.env.filters["reading_minutes"] = reading_minutes
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -75,6 +151,10 @@ async def stories_list(
         offset=offset,
     )
     total_pages = max(1, (total + per_page - 1) // per_page)
+
+    def page_url(n: int) -> str:
+        return build_query(category, source, search, favorite, n)
+
     return templates.TemplateResponse(
         "stories.html",
         {
@@ -88,6 +168,7 @@ async def stories_list(
             "page": page,
             "total_pages": total_pages,
             "total": total,
+            "page_url": page_url,
         },
     )
 
@@ -103,12 +184,19 @@ async def story_detail(request: Request, story_id: int):
         )
     return templates.TemplateResponse(
         "story_detail.html",
-        {"request": request, "story": story, "categories": CATEGORIES},
+        {
+            "request": request,
+            "story": story,
+            "categories": CATEGORIES,
+            "back_url": safe_back_url(request.headers.get("referer")),
+        },
     )
 
 
 @app.post("/stories/{story_id}/favorite")
 async def story_toggle_favorite(story_id: int):
+    if not get_story(story_id):
+        return JSONResponse({"error": "not_found"}, status_code=404)
     state = toggle_favorite(story_id)
     return JSONResponse({"id": story_id, "is_favorite": state})
 

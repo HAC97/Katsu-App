@@ -5,10 +5,10 @@
 {% if story %}
 <article class="story-detail">
     <div class="story-header">
-        <a href="/stories" class="btn btn-outline btn-sm">&laquo; Volver</a>
+        <a href="{{ back_url }}" class="btn btn-outline btn-sm">&laquo; Volver</a>
         <div class="story-badges">
             <span class="badge badge-{{ story.source }}">{{ story.source }}</span>
-            <span class="badge badge-{{ story.category }}">{{ story.category }}</span>
+            <span class="badge badge-{{ story.category }}">{{ story.category|category_label }}</span>
         </div>
     </div>
 
@@ -19,17 +19,20 @@
         {% if story.sub_source %}<span>Fuente: <strong>{% if story.source == 'reddit' %}r/{% endif %}{{ story.sub_source }}</strong></span>{% endif %}
         <span>{{ story.score }} puntos</span>
         <span>{{ story.comment_count }} comentarios</span>
-        <span>Publicado: {{ story.published_at[:10] if story.published_at else '?' }}</span>
-        <span>Recopilado: {{ story.fetched_at[:10] if story.fetched_at else '?' }}</span>
+        <span>Publicado: {{ story.published_at|fmt_date }}</span>
+        <span>Recopilado: {{ story.fetched_at|fmt_date }}</span>
+        {% if story.content %}<span>{{ story.content|reading_minutes }} min de lectura</span>{% endif %}
     </div>
 
     <div class="story-actions">
-        <button class="btn btn-outline favorite-btn" data-id="{{ story.id }}" data-fav="{{ story.is_favorite }}">
-            {% if story.is_favorite %}&#9733; Quitar de favoritas{% else %}&#9734; Agregar a favoritas{% endif %}
+        <button type="button" class="btn btn-outline favorite-btn" data-id="{{ story.id }}"
+                aria-pressed="{{ 'true' if story.is_favorite else 'false' }}">
+            {% if story.is_favorite %}<span aria-hidden="true">&#9733;</span> Quitar de favoritas{% else %}<span aria-hidden="true">&#9734;</span> Agregar a favoritas{% endif %}
         </button>
         <a href="{{ story.source_url }}" target="_blank" rel="noopener" class="btn btn-outline">
-            &#128279; Ver fuente original
+            <span aria-hidden="true">&#128279;</span> Ver fuente original
         </a>
+        <span class="action-status" role="status" aria-live="polite"></span>
     </div>
 
     <div class="story-content">
@@ -46,29 +49,10 @@
 </article>
 {% else %}
 <div class="empty-state">
-    <p>&#128128; Historia no encontrada.</p>
+    <p><span aria-hidden="true">&#128128;</span> Historia no encontrada.</p>
     <p>Esta historia ya no existe o fue eliminada.</p>
     <a href="/stories" class="btn btn-primary">Ver todas las historias</a>
 </div>
 {% endif %}
 
-{% endblock %}
-
-{% block scripts %}
-<script>
-document.querySelectorAll('.favorite-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-        const id = btn.dataset.id;
-        const resp = await fetch(`/stories/${id}/favorite`, { method: 'POST' });
-        const data = await resp.json();
-        if (data.is_favorite) {
-            btn.innerHTML = '&#9733; Quitar de favoritas';
-            btn.dataset.fav = '1';
-        } else {
-            btn.innerHTML = '&#9734; Agregar a favoritas';
-            btn.dataset.fav = '0';
-        }
-    });
-});
-</script>
 {% endblock %}

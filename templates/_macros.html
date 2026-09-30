@@ -1,0 +1,17 @@
+{% macro story_card(story, excerpt=220) %}
+<a href="/stories/{{ story.id }}" class="story-card">
+    <div class="story-meta">
+        <span class="badge badge-{{ story.source }}">{{ story.source }}</span>
+        <span class="badge badge-{{ story.category }}">{{ story.category|category_label }}</span>
+        {% if story.is_favorite %}<span class="star" role="img" aria-label="Favorita">&#9733;</span>{% endif %}
+    </div>
+    <h3>{{ story.title }}</h3>
+    <p class="excerpt">{{ story.content[:excerpt] }}</p>
+    <div class="story-footer">
+        <span>{{ story.score }} pts</span>
+        <span>{{ story.comment_count }} com.</span>
+        {% if story.sub_source %}<span>r/{{ story.sub_source }}</span>{% endif %}
+        {% if story.author %}<span>por {{ story.author }}</span>{% endif %}
+    </div>
+</a>
+{% endmacro %}

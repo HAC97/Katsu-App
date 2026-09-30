@@ -3,28 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0a0a0f">
     <title>{% block title %}ConspiracyHub{% endblock %}</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%94%AE%3C/text%3E%3C/svg%3E">
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
+    {% set path = request.url.path %}
+    {% set fav_view = request.query_params.get('favorite') == 'true' %}
+    <a href="#contenido" class="skip-link">Saltar al contenido</a>
     <header>
-        <nav class="navbar">
-            <a href="/" class="logo">&#128302; ConspiracyHub</a>
+        <nav class="navbar" aria-label="Principal">
+            <a href="/" class="logo"><span aria-hidden="true">&#128302;</span> ConspiracyHub</a>
             <ul class="nav-links">
-                <li><a href="/">Inicio</a></li>
-                <li><a href="/stories">Historias</a></li>
-                <li><a href="/stories?favorite=true">&#9733; Favoritas</a></li>
+                <li><a href="/" {% if path == '/' %}aria-current="page"{% endif %}>Inicio</a></li>
+                <li><a href="/stories" {% if path.startswith('/stories') and not (path == '/stories' and fav_view) %}aria-current="page"{% endif %}>Historias</a></li>
+                <li><a href="/stories?favorite=true" {% if path == '/stories' and fav_view %}aria-current="page"{% endif %}><span aria-hidden="true">&#9733;</span> Favoritas</a></li>
             </ul>
         </nav>
     </header>
 
-    <main class="container">
+    <main class="container" id="contenido">
         {% block content %}{% endblock %}
     </main>
 
     <footer>
-        <p>ConspiracyHub — Recopilador de teorias conspirativas, historias de terror y fenomenos paranormales.</p>
-        <p class="disclaimer">El contenido es extraido de fuentes publicas (Reddit). No se verifica su veracidad.</p>
+        <p>ConspiracyHub — Recopilador de teorías conspirativas, historias de terror y fenómenos paranormales.</p>
+        <p class="disclaimer">El contenido se extrae de fuentes públicas (Reddit). No se verifica su veracidad.</p>
     </footer>
 
     <script src="/static/script.js"></script>

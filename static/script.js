@@ -1,31 +1,49 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const fetchForm = document.querySelector('.fetch-form');
-    const fetchBtn = document.getElementById('fetch-btn');
-    const loadingContainer = document.getElementById('loading-container');
-    
-    if (fetchForm && fetchBtn) {
-        fetchForm.addEventListener('submit', function() {
-            fetchBtn.textContent = 'Escaneando...';
-            fetchBtn.style.opacity = '0.7';
-            setTimeout(() => { fetchBtn.disabled = true; }, 10);
-            
-            if (loadingContainer) {
-                loadingContainer.style.display = 'block';
+    document.querySelectorAll('.fetch-form').forEach(form => {
+        form.addEventListener('submit', () => {
+            const btn = form.querySelector('button[type="submit"]');
+            const loading = form.querySelector('.loading-container');
+            form.classList.add('is-loading');
+            if (btn) {
+                btn.textContent = 'Escaneando...';
+                // Disable after the submit event so the POST still goes out.
+                setTimeout(() => { btn.disabled = true; }, 10);
             }
+            if (loading) loading.hidden = false;
         });
-    }
+    });
+
+    const LABELS = {
+        true: ['★', ' Quitar de favoritas'],
+        false: ['☆', ' Agregar a favoritas'],
+    };
 
     document.querySelectorAll('.favorite-btn').forEach(btn => {
+        const status = btn.parentElement.querySelector('.action-status');
+
+        const render = isFav => {
+            const [icon, text] = LABELS[isFav];
+            btn.textContent = '';
+            const iconEl = document.createElement('span');
+            iconEl.setAttribute('aria-hidden', 'true');
+            iconEl.textContent = icon;
+            btn.append(iconEl, text);
+            btn.setAttribute('aria-pressed', String(isFav));
+        };
+
         btn.addEventListener('click', async () => {
-            const id = btn.dataset.id;
-            const resp = await fetch(`/stories/${id}/favorite`, { method: 'POST' });
-            const data = await resp.json();
-            if (data.is_favorite) {
-                btn.innerHTML = '&#9733; Quitar de favoritas';
-                btn.dataset.fav = '1';
-            } else {
-                btn.innerHTML = '&#9734; Agregar a favoritas';
-                btn.dataset.fav = '0';
+            if (btn.disabled) return;
+            btn.disabled = true;
+            if (status) status.textContent = '';
+            try {
+                const resp = await fetch(`/stories/${btn.dataset.id}/favorite`, { method: 'POST' });
+                if (!resp.ok) throw new Error(resp.status);
+                const data = await resp.json();
+                render(Boolean(data.is_favorite));
+            } catch (err) {
+                if (status) status.textContent = 'No se pudo actualizar. Inténtalo de nuevo.';
+            } finally {
+                btn.disabled = false;
             }
         });
     });
