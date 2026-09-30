@@ -1,9 +1,10 @@
 {% extends "base.html" %}
-{% from "_macros.html" import story_card %}
+{% from "_macros.html" import story_card, stamp %}
 {% block title %}ConspiracyHub — Historias{% endblock %}
 {% block content %}
 
 <section class="page-header">
+    <p class="kicker">Libro de registro</p>
     <h1>Historias recopiladas</h1>
     <p class="subtitle">{{ total }} {{ 'historia encontrada' if total == 1 else 'historias encontradas' }}</p>
 </section>
@@ -18,21 +19,22 @@
         </select>
 
         <label class="sr-only" for="f-search">Buscar</label>
-        <input id="f-search" type="search" name="search" placeholder="Buscar..." value="{{ current_search }}" class="filter-input">
+        <input id="f-search" type="search" name="search" placeholder="Título o texto" value="{{ current_search }}" class="filter-input">
 
         <label class="checkbox-label">
             <input type="checkbox" name="favorite" value="true" {% if favorite_only %}checked{% endif %}>
             Solo favoritas
         </label>
 
-        <button type="submit" class="btn btn-primary">Filtrar</button>
+        <button type="submit" class="btn btn-ink">Filtrar</button>
     </div>
 </form>
 
 {% if stories %}
-<div class="story-grid">
-    {% for story in stories %}{{ story_card(story, 250) }}{% endfor %}
-</div>
+<div class="ledger-head" aria-hidden="true"><span>Exp.</span><span>Clase</span><span>Título</span><span>Origen y puntos</span></div>
+<ol class="ledger">
+    {% for story in stories %}{{ story_card(story) }}{% endfor %}
+</ol>
 
 {% if total_pages > 1 %}
 <nav class="pagination" aria-label="Paginación">
@@ -58,11 +60,20 @@
 
 {% else %}
 <div class="empty-state">
-    <p><span aria-hidden="true">&#128123;</span> No hay historias que coincidan con los filtros.</p>
-    <p>Ajusta los filtros o escanea contenido nuevo.</p>
-    <form method="POST" action="/fetch" class="fetch-form">
-        <button type="submit" class="btn btn-primary">Escanear ahora</button>
-    </form>
+    {{ stamp('Carpeta vacía') }}
+    <p class="empty-title">No hay historias que coincidan con los filtros.</p>
+    {% set active = [] %}
+    {% if current_search %}{% set _ = active.append('Texto: «' ~ current_search ~ '»') %}{% endif %}
+    {% for val, label in categories %}{% if val == current_category and val != 'all' %}{% set _ = active.append('Categoría: ' ~ label) %}{% endif %}{% endfor %}
+    {% if favorite_only %}{% set _ = active.append('Solo favoritas') %}{% endif %}
+    {% if active %}<p class="empty-filters">Filtros activos: {{ active|join(' · ') }}</p>{% endif %}
+    <p>Quita los filtros o pulsa Escanear para traer contenido nuevo.</p>
+    <div class="empty-actions">
+        <form method="POST" action="/fetch" class="fetch-form">
+            <button type="submit" class="btn btn-primary">Escanear</button>
+        </form>
+        {% if active %}<a href="/stories" class="btn btn-outline">Quitar filtros</a>{% endif %}
+    </div>
 </div>
 {% endif %}
 

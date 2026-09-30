@@ -1,17 +1,21 @@
-{% macro story_card(story, excerpt=220) %}
-<a href="/stories/{{ story.id }}" class="story-card">
-    <div class="story-meta">
-        <span class="badge badge-{{ story.source }}">{{ story.source }}</span>
-        <span class="badge badge-{{ story.category }}">{{ story.category|category_label }}</span>
-        {% if story.is_favorite %}<span class="star" role="img" aria-label="Favorita">&#9733;</span>{% endif %}
-    </div>
-    <h3>{{ story.title }}</h3>
-    <p class="excerpt">{{ story.content[:excerpt] }}</p>
-    <div class="story-footer">
-        <span>{{ story.score }} pts</span>
-        <span>{{ story.comment_count }} com.</span>
-        {% if story.sub_source %}<span>r/{{ story.sub_source }}</span>{% endif %}
-        {% if story.author %}<span>por {{ story.author }}</span>{% endif %}
-    </div>
-</a>
+{# Fila del libro de registro. El texto completo del extracto siempre está en el DOM;
+   el CSS tapa todo salvo la primera línea con barras de censura. #}
+{% macro story_card(story, excerpt=150, lead=80) %}
+{% set parts = story.content|excerpt_split(excerpt, lead) %}
+<li class="entry">
+    <article class="row cat-{{ story.category }}">
+        <span class="cell-no"><span class="lbl">Exp.</span> №&nbsp;{{ '%04d'|format(story.id) }}</span>
+        <span class="cell-class"><span class="tab">{{ story.category|category_label }}</span></span>
+        <div class="cell-body">
+            <h3 class="row-title"><a href="/stories/{{ story.id }}" class="row-link">{{ story.title }}</a>{% if story.is_favorite %} <span class="star" role="img" aria-label="Favorita">&#9733;</span>{% endif %}</h3>
+            {% if parts[0] %}<p class="excerpt"><span class="ex-first">{{ parts[0] }}</span>{% if parts[1] %} <span class="ex-rest">{{ parts[1] }}</span>{% endif %}</p>{% else %}<p class="excerpt excerpt-empty">Sin texto en el expediente.</p>{% endif %}
+        </div>
+        <div class="cell-meta">
+            <span class="cell-origin"{% if story.sub_source %} title="{{ story.source }} · r/{{ story.sub_source }}"{% endif %}><span class="src">{{ story.source }}</span>{% if story.sub_source %}<span class="sub">r/{{ story.sub_source }}</span>{% endif %}</span>
+            <span class="cell-pts"><span class="pts">{{ story.score }}</span> pts · {{ story.comment_count }} com.</span>
+        </div>
+    </article>
+</li>
 {% endmacro %}
+
+{% macro stamp(text='Sin verificar') %}<span class="stamp">{{ text }}</span>{% endmacro %}

@@ -1,39 +1,45 @@
 {% extends "base.html" %}
+{% from "_macros.html" import stamp %}
 {% block title %}{{ story.title if story else 'No encontrada' }} — ConspiracyHub{% endblock %}
 {% block content %}
 
 {% if story %}
-<article class="story-detail">
-    <div class="story-header">
-        <a href="{{ back_url }}" class="btn btn-outline btn-sm">&laquo; Volver</a>
-        <div class="story-badges">
-            <span class="badge badge-{{ story.source }}">{{ story.source }}</span>
-            <span class="badge badge-{{ story.category }}">{{ story.category|category_label }}</span>
+<article class="story-detail cat-{{ story.category }}">
+    <a href="{{ back_url }}" class="btn btn-outline btn-sm">&laquo; Volver</a>
+
+    <header class="file-header">
+        <div class="file-tabline">
+            <span class="tab">{{ story.category|category_label }}</span>
+            <span class="file-no">Expediente №&nbsp;{{ '%04d'|format(story.id) }}</span>
+            {{ stamp('Favorito' if story.is_favorite else 'Sin verificar') }}
         </div>
-    </div>
+        <h1 class="story-title">{{ story.title }}</h1>
+    </header>
 
-    <h1 class="story-title">{{ story.title }}</h1>
+    <p class="file-summary" aria-hidden="true">{{ story.source }}{% if story.sub_source %} · {% if story.source == 'reddit' %}r/{% endif %}{{ story.sub_source }}{% endif %} · {{ story.score }} pts · {{ story.comment_count }} com. · {{ story.published_at|fmt_date }}{% if story.content %} · {{ story.content|reading_minutes }} min{% endif %}</p>
 
-    <div class="story-info">
-        {% if story.author %}<span>Autor: <strong>{{ story.author }}</strong></span>{% endif %}
-        {% if story.sub_source %}<span>Fuente: <strong>{% if story.source == 'reddit' %}r/{% endif %}{{ story.sub_source }}</strong></span>{% endif %}
-        <span>{{ story.score }} puntos</span>
-        <span>{{ story.comment_count }} comentarios</span>
-        <span>Publicado: {{ story.published_at|fmt_date }}</span>
-        <span>Recopilado: {{ story.fetched_at|fmt_date }}</span>
-        {% if story.content %}<span>{{ story.content|reading_minutes }} min de lectura</span>{% endif %}
-    </div>
-
-    <div class="story-actions">
-        <button type="button" class="btn btn-outline favorite-btn" data-id="{{ story.id }}"
-                aria-pressed="{{ 'true' if story.is_favorite else 'false' }}">
-            {% if story.is_favorite %}<span aria-hidden="true">&#9733;</span> Quitar de favoritas{% else %}<span aria-hidden="true">&#9734;</span> Agregar a favoritas{% endif %}
-        </button>
-        <a href="{{ story.source_url }}" target="_blank" rel="noopener" class="btn btn-outline">
-            <span aria-hidden="true">&#128279;</span> Ver fuente original
-        </a>
-        <span class="action-status" role="status" aria-live="polite"></span>
-    </div>
+    <aside class="file-notes" aria-label="Datos del expediente">
+        <div class="notes-data">
+            <p class="notes-title">Datos del expediente</p>
+            <dl class="story-info">
+                <div><dt>Origen</dt><dd>{{ story.source }}{% if story.sub_source %} · {% if story.source == 'reddit' %}r/{% endif %}{{ story.sub_source }}{% endif %}</dd></div>
+                {% if story.author %}<div><dt>Autor</dt><dd>{{ story.author }}</dd></div>{% endif %}
+                <div><dt>Puntos</dt><dd>{{ story.score }}</dd></div>
+                <div><dt>Comentarios</dt><dd>{{ story.comment_count }}</dd></div>
+                <div><dt>Publicado</dt><dd>{{ story.published_at|fmt_date }}</dd></div>
+                <div><dt>Recopilado</dt><dd>{{ story.fetched_at|fmt_date }}</dd></div>
+                {% if story.content %}<div><dt>Lectura</dt><dd>{{ story.content|reading_minutes }} min de lectura</dd></div>{% endif %}
+            </dl>
+        </div>
+        <div class="story-actions">
+            <button type="button" class="btn btn-outline favorite-btn" data-id="{{ story.id }}"
+                    aria-pressed="{{ 'true' if story.is_favorite else 'false' }}">
+                {% if story.is_favorite %}<span aria-hidden="true">&#9733;</span> Quitar de favoritas{% else %}<span aria-hidden="true">&#9734;</span> Agregar a favoritas{% endif %}
+            </button>
+            <a href="{{ story.source_url }}" target="_blank" rel="noopener" class="btn btn-outline">Ver fuente original</a>
+            <span class="action-status" role="status" aria-live="polite"></span>
+        </div>
+    </aside>
 
     <div class="story-content">
         {% if story.content %}
@@ -43,14 +49,15 @@
                 {%- endif -%}
             {%- endfor -%}
         {% else %}
-            <p class="no-content"><em>Esta historia no tiene contenido de texto. <a href="{{ story.source_url }}" target="_blank" rel="noopener">Ver en la fuente original</a>.</em></p>
+            <p class="no-content"><em>Esta historia no tiene texto. <a href="{{ story.source_url }}" target="_blank" rel="noopener">Léela en la fuente original</a>.</em></p>
         {% endif %}
     </div>
 </article>
 {% else %}
 <div class="empty-state">
-    <p><span aria-hidden="true">&#128128;</span> Historia no encontrada.</p>
-    <p>Esta historia ya no existe o fue eliminada.</p>
+    {{ stamp('No encontrada') }}
+    <p class="empty-title">Historia no encontrada.</p>
+    <p>Esta historia ya no existe o fue eliminada. Busca otra en el registro.</p>
     <a href="/stories" class="btn btn-primary">Ver todas las historias</a>
 </div>
 {% endif %}

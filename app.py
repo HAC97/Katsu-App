@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import re
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
@@ -86,6 +87,32 @@ def reading_minutes(text) -> int:
     return max(1, round(len((text or "").split()) / WORDS_PER_MINUTE))
 
 
+_URL_RE = re.compile(r"https?://(?:www\.)?([^/\s?#)\]]+)[^\s)\]]*", re.I)
+_ESCAPE_RE = re.compile(r"\\([\\`*_{}\[\]()#+\-.!~>|])")
+
+
+def excerpt_split(text, limit=220, first_len=110):
+    """Split a story into (first line, rest) for the censored excerpt.
+
+    Excerpt-only cleanup: markdown backslash escapes are removed and bare URLs
+    collapse to their domain. Truncation is done here at a word boundary and
+    adds no ellipsis, so nothing ever trails a censor bar. The detail page
+    renders the untouched text.
+    """
+    flat = _ESCAPE_RE.sub(lambda m: m.group(1), text or "")
+    flat = _URL_RE.sub(lambda m: m.group(1), flat)
+    flat = " ".join(flat.split())
+    if not flat:
+        return ("", "")
+    if len(flat) > limit:
+        flat = flat[:limit].rsplit(" ", 1)[0].rstrip(" ,;:-–—([{\"'")
+    if len(flat) <= first_len:
+        return (flat, "")
+    cut = flat.rfind(" ", 0, first_len)
+    cut = cut if cut > 0 else first_len
+    return (flat[:cut], flat[cut:].strip())
+
+
 def safe_back_url(referer: Optional[str]) -> str:
     """Return the listing URL the user came from; anything else falls back to /stories."""
     if referer:
@@ -114,6 +141,7 @@ templates.env.filters["category_label"] = category_label
 templates.env.filters["fmt_datetime"] = format_datetime
 templates.env.filters["fmt_date"] = format_date
 templates.env.filters["reading_minutes"] = reading_minutes
+templates.env.filters["excerpt_split"] = excerpt_split
 
 
 @app.get("/", response_class=HTMLResponse)

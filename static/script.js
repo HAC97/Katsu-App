@@ -29,6 +29,8 @@ document.addEventListener('DOMContentLoaded', () => {
             iconEl.textContent = icon;
             btn.append(iconEl, text);
             btn.setAttribute('aria-pressed', String(isFav));
+            const stamp = document.querySelector('.file-tabline .stamp');
+            if (stamp) stamp.textContent = isFav ? 'Favorito' : 'Sin verificar';
         };
 
         btn.addEventListener('click', async () => {
