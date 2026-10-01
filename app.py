@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import random
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
@@ -10,6 +11,7 @@ from fastapi import FastAPI, Request, Form, Query
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from markupsafe import Markup, escape
 
 from database import (
     init_db,
@@ -20,7 +22,7 @@ from database import (
     get_stats,
     log_fetch,
 )
-from reddit_fetcher import fetch_all_reddit, fetch_subreddit
+from reddit_fetcher import fetch_reddit
 from config import SUBREDDITS, CATEGORIES
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -46,6 +48,7 @@ CATEGORY_LABELS = {
     "paranormal": "Paranormal",
 }
 WORDS_PER_MINUTE = 200
+MIN_REDACTION_CHARS = 12  # a bar over one short word reads as a rendering glitch
 
 
 def build_query(category="all", source="all", search="", favorite=False, page=1) -> str:
@@ -110,6 +113,61 @@ def _parse_listing_query(query: str) -> dict:
     }
 
 
+def compact_number(value) -> str:
+    """5100 -> '5,1k'. None stays empty: an unknown count is not 0."""
+    if value is None:
+        return ""
+    n = int(value)
+    if n < 1000:
+        return str(n)
+    if n < 1_000_000:
+        return f"{n / 1000:.1f}".replace(".0", "").replace(".", ",") + "k"
+    return f"{n / 1_000_000:.1f}".replace(".0", "").replace(".", ",") + "M"
+
+
+def redact(text, seed, limit: int = 220, spans: int = 2) -> Markup:
+    """Excerpt with a few phrases wrapped in <span class="rx"> (shown as redaction bars).
+
+    Deterministic per `seed` (the story id) so a story looks the same on every visit.
+    Text stays in the DOM, so nothing is hidden from screen readers or search.
+    """
+    words = " ".join((text or "").split()).split(" ")
+    words = [w for w in words if w]
+    cut = 0
+    if len(" ".join(words)) > limit:
+        acc = 0
+        for i, w in enumerate(words):
+            acc += len(w) + 1
+            if acc > limit:
+                cut = i
+                break
+        words = words[:cut]
+    ellipsis = "…" if cut else ""
+    rng = random.Random(f"redact-{seed}")
+    taken = []
+    if len(words) >= 14:
+        for _ in range(spans):
+            for _attempt in range(8):
+                length = rng.randint(2, 5)
+                start = rng.randint(3, len(words) - length - 2)
+                long_enough = len(" ".join(words[start:start + length])) >= MIN_REDACTION_CHARS
+                if long_enough and all(start + length + 1 < a or start > b + 1 for a, b in taken):
+                    taken.append((start, start + length - 1))
+                    break
+    taken.sort()
+    out, i = [], 0
+    for a, b in taken:
+        if a > i:
+            out.append(escape(" ".join(words[i:a])))
+        out.append(Markup('<span class="rx">') + escape(" ".join(words[a:b + 1])) + Markup("</span>"))
+        i = b + 1
+    if i < len(words):
+        out.append(escape(" ".join(words[i:])))
+    return Markup(" ").join(out) + ellipsis
+
+
+templates.env.filters["compact"] = compact_number
+templates.env.filters["redact"] = redact
 templates.env.filters["category_label"] = category_label
 templates.env.filters["fmt_datetime"] = format_datetime
 templates.env.filters["fmt_date"] = format_date
@@ -182,6 +240,8 @@ async def story_detail(request: Request, story_id: int):
             {"request": request, "story": None, "categories": CATEGORIES},
             status_code=404,
         )
+    same_category, _ = get_stories(category=story["category"], limit=4)
+    related = [r for r in same_category if r["id"] != story["id"]][:3]
     return templates.TemplateResponse(
         "story_detail.html",
         {
@@ -189,6 +249,7 @@ async def story_detail(request: Request, story_id: int):
             "story": story,
             "categories": CATEGORIES,
             "back_url": safe_back_url(request.headers.get("referer")),
+            "related": related,
         },
     )
 
@@ -201,43 +262,25 @@ async def story_toggle_favorite(story_id: int):
     return JSONResponse({"id": story_id, "is_favorite": state})
 
 
-async def _run_fetch_reddit(subreddits: dict) -> tuple:
-    all_posts = []
-    sem = asyncio.Semaphore(6)
-
-    async def fetch_one(sub_name, category):
-        async with sem:
-            posts = await asyncio.to_thread(fetch_subreddit, sub_name)
-            for p in posts:
-                p["category"] = category
-            return posts
-
-    tasks = [fetch_one(name, cat) for name, cat in subreddits.items()]
-    results_list = await asyncio.gather(*tasks, return_exceptions=True)
-
-    for result in results_list:
-        if isinstance(result, Exception):
-            logger.error(f"Reddit fetch error: {result}")
-        else:
-            all_posts.extend(result)
-
-    return all_posts
-
 @app.post("/fetch")
 async def trigger_fetch(request: Request):
     results = {"reddit": {"found": 0, "new": 0}}
     errors = []
 
     try:
-        posts = await _run_fetch_reddit(SUBREDDITS)
-        results["reddit"]["found"] = len(posts)
+        outcome = await asyncio.to_thread(fetch_reddit, SUBREDDITS)
+        errors.extend(outcome.errors)
+        results["reddit"]["found"] = len(outcome.posts)
         new = 0
-        for post in posts:
+        for post in outcome.posts:
             sid = await asyncio.to_thread(insert_story, post)
             if sid:
                 new += 1
         results["reddit"]["new"] = new
-        await asyncio.to_thread(log_fetch, "reddit", len(posts), new)
+        status = "ok" if not errors else ("partial" if outcome.posts else "error")
+        await asyncio.to_thread(
+            log_fetch, "reddit", len(outcome.posts), new, status, "; ".join(errors)
+        )
     except Exception as e:
         logger.exception("Reddit fetch failed")
         errors.append(f"Reddit: {e}")

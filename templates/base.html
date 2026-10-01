@@ -3,23 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#0a0a0f">
+    <meta name="color-scheme" content="light dark">
+    <meta name="theme-color" content="#e8ebe8" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#0d1015" media="(prefers-color-scheme: dark)">
+    <meta name="description" content="Archivo de teorías conspirativas, historias de terror y fenómenos paranormales recopilados de Reddit.">
     <title>{% block title %}ConspiracyHub{% endblock %}</title>
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%94%AE%3C/text%3E%3C/svg%3E">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230d1015'/%3E%3Crect x='6' y='13' width='20' height='6' fill='%23e8ebe8'/%3E%3Crect x='6' y='22' width='12' height='4' fill='%23e5391f'/%3E%3C/svg%3E">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,500..900&family=JetBrains+Mono:wght@400;500;700&family=Literata:ital,opsz,wght@0,7..72,400..600;1,7..72,400&display=swap" rel="stylesheet">
+    <script src="/static/theme.js"></script>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
     {% set path = request.url.path %}
     {% set fav_view = request.query_params.get('favorite') == 'true' %}
     <a href="#contenido" class="skip-link">Saltar al contenido</a>
-    <header>
+    <header class="topbar">
         <nav class="navbar" aria-label="Principal">
-            <a href="/" class="logo"><span aria-hidden="true">&#128302;</span> ConspiracyHub</a>
+            <a href="/" class="logo">Conspiracy<span class="logo-tag">Hub</span></a>
             <ul class="nav-links">
                 <li><a href="/" {% if path == '/' %}aria-current="page"{% endif %}>Inicio</a></li>
                 <li><a href="/stories" {% if path.startswith('/stories') and not (path == '/stories' and fav_view) %}aria-current="page"{% endif %}>Historias</a></li>
                 <li><a href="/stories?favorite=true" {% if path == '/stories' and fav_view %}aria-current="page"{% endif %}><span aria-hidden="true">&#9733;</span> Favoritas</a></li>
             </ul>
+            <button type="button" class="theme-toggle" aria-label="Cambiar tema">
+                <span class="theme-icon" aria-hidden="true"></span>
+            </button>
+            <form method="POST" action="/fetch" class="fetch-form nav-scan">
+                <button type="submit" class="btn-scan">Escanear</button>
+            </form>
         </nav>
     </header>
 
@@ -27,8 +40,8 @@
         {% block content %}{% endblock %}
     </main>
 
-    <footer>
-        <p>ConspiracyHub — Recopilador de teorías conspirativas, historias de terror y fenómenos paranormales.</p>
+    <footer class="site-footer">
+        <p>ConspiracyHub · archivo de teorías, terror y fenómenos paranormales</p>
         <p class="disclaimer">El contenido se extrae de fuentes públicas (Reddit). No se verifica su veracidad.</p>
     </footer>
 

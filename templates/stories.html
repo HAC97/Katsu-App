@@ -1,37 +1,40 @@
 {% extends "base.html" %}
-{% from "_macros.html" import story_card %}
+{% from "_macros.html" import story_row %}
 {% block title %}ConspiracyHub — Historias{% endblock %}
 {% block content %}
 
 <section class="page-header">
-    <h1>Historias recopiladas</h1>
+    <p class="eyebrow">Archivo</p>
+    <h1 class="mega mega-sm">Historias</h1>
     <p class="subtitle">{{ total }} {{ 'historia encontrada' if total == 1 else 'historias encontradas' }}</p>
 </section>
 
 <form method="GET" action="/stories" class="filters" role="search">
-    <div class="filter-row">
-        <label class="sr-only" for="f-category">Categoría</label>
-        <select id="f-category" name="category" class="filter-select">
-            {% for val, label in categories %}
-            <option value="{{ val }}" {% if current_category == val %}selected{% endif %}>{{ label }}</option>
-            {% endfor %}
-        </select>
-
-        <label class="sr-only" for="f-search">Buscar</label>
-        <input id="f-search" type="search" name="search" placeholder="Buscar..." value="{{ current_search }}" class="filter-input">
-
-        <label class="checkbox-label">
-            <input type="checkbox" name="favorite" value="true" {% if favorite_only %}checked{% endif %}>
-            Solo favoritas
+    <fieldset class="seg">
+        <legend class="sr-only">Categoría</legend>
+        {% for val, label in categories %}
+        <label class="seg-item" data-cat="{{ val }}">
+            <input type="radio" name="category" value="{{ val }}" {% if current_category == val %}checked{% endif %}>
+            <span>{{ label }}</span>
         </label>
+        {% endfor %}
+    </fieldset>
 
+    <label class="checkbox-label">
+        <input type="checkbox" name="favorite" value="true" {% if favorite_only %}checked{% endif %}>
+        <span>Favoritas</span>
+    </label>
+
+    <div class="search-group">
+        <label class="sr-only" for="f-search">Buscar</label>
+        <input id="f-search" type="search" name="search" placeholder="Buscar…" value="{{ current_search }}" class="filter-input">
         <button type="submit" class="btn btn-primary">Filtrar</button>
     </div>
 </form>
 
 {% if stories %}
-<div class="story-grid">
-    {% for story in stories %}{{ story_card(story, 250) }}{% endfor %}
+<div class="index">
+    {% for story in stories %}{{ story_row(story, 250) }}{% endfor %}
 </div>
 
 {% if total_pages > 1 %}
@@ -58,7 +61,7 @@
 
 {% else %}
 <div class="empty-state">
-    <p><span aria-hidden="true">&#128123;</span> No hay historias que coincidan con los filtros.</p>
+    <p class="empty-title">No hay historias que coincidan con los filtros.</p>
     <p>Ajusta los filtros o escanea contenido nuevo.</p>
     <form method="POST" action="/fetch" class="fetch-form">
         <button type="submit" class="btn btn-primary">Escanear ahora</button>

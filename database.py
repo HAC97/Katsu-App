@@ -156,7 +156,7 @@ def get_stats() -> dict:
             ).fetchall()
         }
         last_fetch = conn.execute(
-            "SELECT * FROM fetch_log ORDER BY fetched_at DESC LIMIT 1"
+            "SELECT * FROM fetch_log ORDER BY id DESC LIMIT 1"
         ).fetchone()
 
         return {

@@ -47,4 +47,32 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     });
+
+    // Tema: sigue al sistema hasta que la persona elige; la elección se guarda.
+    const root = document.documentElement;
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const currentTheme = () => root.getAttribute('data-theme') || (media.matches ? 'dark' : 'light');
+
+    document.querySelectorAll('.theme-toggle').forEach(btn => {
+        const sync = () => {
+            const next = currentTheme() === 'dark' ? 'claro' : 'oscuro';
+            btn.setAttribute('aria-label', `Cambiar a tema ${next}`);
+            btn.setAttribute('title', `Tema ${next}`);
+        };
+        sync();
+        media.addEventListener('change', sync);
+        btn.addEventListener('click', () => {
+            const next = currentTheme() === 'dark' ? 'light' : 'dark';
+            root.setAttribute('data-theme', next);
+            try { localStorage.setItem('theme', next); } catch (e) { /* ignore */ }
+            sync();
+        });
+    });
+
+    // Filtros: cambiar categoría o favoritas filtra al instante (el botón sigue ahí sin JS).
+    document.querySelectorAll('.filters').forEach(form => {
+        form.querySelectorAll('input[type="radio"], input[type="checkbox"]').forEach(input => {
+            input.addEventListener('change', () => form.requestSubmit());
+        });
+    });
 });
