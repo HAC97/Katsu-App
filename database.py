@@ -41,7 +41,9 @@ CREATE INDEX IF NOT EXISTS idx_stories_favorite ON stories(is_favorite);
 
 
 def get_db() -> sqlite3.Connection:
-    conn = sqlite3.connect(DATABASE_PATH)
+    # Resolved per connection so tests can redirect DATABASE_PATH even when
+    # config was imported before the environment variable was set.
+    conn = sqlite3.connect(os.environ.get("DATABASE_PATH", DATABASE_PATH))
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -179,6 +181,18 @@ def log_fetch(source: str, found: int, new: int, status: str = "ok", error: str 
             (source, found, new, status, error),
         )
         conn.commit()
+    finally:
+        conn.close()
+
+
+def get_last_fetch(source: str = "reddit") -> Optional[dict]:
+    conn = get_db()
+    try:
+        row = conn.execute(
+            "SELECT * FROM fetch_log WHERE source = ? ORDER BY id DESC LIMIT 1",
+            (source,),
+        ).fetchone()
+        return dict(row) if row else None
     finally:
         conn.close()
 

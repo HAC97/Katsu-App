@@ -2,7 +2,7 @@ import asyncio
 import logging
 import random
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 from urllib.parse import parse_qsl, urlencode, urlsplit
@@ -21,8 +21,9 @@ from database import (
     toggle_favorite,
     get_stats,
     log_fetch,
+    get_last_fetch,
 )
-from reddit_fetcher import fetch_reddit
+from reddit_fetcher import fetch_reddit, oauth_configured
 from config import SUBREDDITS, CATEGORIES
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -48,6 +49,9 @@ CATEGORY_LABELS = {
     "paranormal": "Paranormal",
 }
 WORDS_PER_MINUTE = 200
+# Anonymous RSS allows 1 request per 60 s clock window (measured: 200 at 65 s gaps,
+# 429 at 30 s). 65 s clears the window; a longer lock only made the app refuse scans Reddit accepts.
+FETCH_COOLDOWN_SECONDS = 65
 MIN_REDACTION_CHARS = 12  # a bar over one short word reads as a rendering glitch
 
 
@@ -87,6 +91,23 @@ def format_date(value) -> str:
 
 def reading_minutes(text) -> int:
     return max(1, round(len((text or "").split()) / WORDS_PER_MINUTE))
+
+
+def cooldown_remaining(last_fetch: Optional[dict]) -> int:
+    """Seconds until Reddit may be scanned again; 0 when there is no recent scan.
+
+    Anonymous Reddit RSS allows about one request per rate window, answers
+    429/403 to repeats, and reopens its 60 s window on the clock;
+    so a second scan within `FETCH_COOLDOWN_SECONDS` is refused locally.
+    """
+    if not last_fetch:
+        return 0
+    try:
+        last = datetime.fromisoformat(str(last_fetch["fetched_at"]))
+    except (KeyError, ValueError):
+        return 0
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    return max(0, int(FETCH_COOLDOWN_SECONDS - (now - last).total_seconds() + 0.999))
 
 
 def safe_back_url(referer: Optional[str]) -> str:
@@ -185,6 +206,7 @@ async def index(request: Request):
             "stats": stats,
             "recent_stories": recent_stories,
             "categories": CATEGORIES,
+            "oauth_ready": oauth_configured(),
         },
     )
 
@@ -264,27 +286,33 @@ async def story_toggle_favorite(story_id: int):
 
 @app.post("/fetch")
 async def trigger_fetch(request: Request):
-    results = {"reddit": {"found": 0, "new": 0}}
+    wait = 0 if oauth_configured() else cooldown_remaining(get_last_fetch("reddit"))
+    results = None
     errors = []
-
-    try:
-        outcome = await asyncio.to_thread(fetch_reddit, SUBREDDITS)
-        errors.extend(outcome.errors)
-        results["reddit"]["found"] = len(outcome.posts)
-        new = 0
-        for post in outcome.posts:
-            sid = await asyncio.to_thread(insert_story, post)
-            if sid:
-                new += 1
-        results["reddit"]["new"] = new
-        status = "ok" if not errors else ("partial" if outcome.posts else "error")
-        await asyncio.to_thread(
-            log_fetch, "reddit", len(outcome.posts), new, status, "; ".join(errors)
-        )
-    except Exception as e:
-        logger.exception("Reddit fetch failed")
-        errors.append(f"Reddit: {e}")
-        await asyncio.to_thread(log_fetch, "reddit", 0, 0, "error", str(e))
+    notice = ""
+    if wait:
+        wait_label = f"{wait} s" if wait < 90 else f"{(wait + 59) // 60} min"
+        notice = f"Reddit limita los escaneos anónimos. Vuelve a intentarlo en {wait_label}."
+    else:
+        results = {"reddit": {"found": 0, "new": 0}}
+        try:
+            outcome = await asyncio.to_thread(fetch_reddit, SUBREDDITS)
+            errors.extend(outcome.errors)
+            results["reddit"]["found"] = len(outcome.posts)
+            new = 0
+            for post in outcome.posts:
+                sid = await asyncio.to_thread(insert_story, post)
+                if sid:
+                    new += 1
+            results["reddit"]["new"] = new
+            status = "ok" if not errors else ("partial" if outcome.posts else "error")
+            await asyncio.to_thread(
+                log_fetch, "reddit", len(outcome.posts), new, status, "; ".join(errors)
+            )
+        except Exception as e:
+            logger.exception("Reddit fetch failed")
+            errors.append(f"Reddit: {e}")
+            await asyncio.to_thread(log_fetch, "reddit", 0, 0, "error", str(e))
 
     stats = get_stats()
     recent_stories, _ = get_stories(limit=12)
@@ -297,6 +325,8 @@ async def trigger_fetch(request: Request):
             "categories": CATEGORIES,
             "fetch_result": results,
             "fetch_errors": errors,
+            "fetch_notice": notice,
+            "oauth_ready": oauth_configured(),
         },
     )
 

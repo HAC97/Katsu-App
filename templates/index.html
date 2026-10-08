@@ -1,10 +1,9 @@
 {% extends "base.html" %}
 {% from "_macros.html" import story_row %}
-{% block title %}ConspiracyHub — Inicio{% endblock %}
+{% block title %}Inicio · ConspiracyHub{% endblock %}
 {% block content %}
 
 <section class="hero">
-    <p class="eyebrow">Archivo abierto · fuentes públicas</p>
     <p class="hero-stamp" aria-hidden="true">Clasificado<br>{{ stats.total }} expedientes</p>
     <h1 class="mega">Lo que <span class="redacted">no debía</span> saberse.</h1>
     <div class="hero-grid">
@@ -16,7 +15,7 @@
             <button type="submit" class="btn btn-primary btn-lg" id="fetch-btn">Escanear ahora</button>
             <a href="/stories" class="btn btn-lg">Abrir el archivo</a>
             <p class="fetch-hint">
-                Busca contenido nuevo en Reddit; puede tardar un par de minutos.
+                Busca contenido nuevo en Reddit.{% if not oauth_ready %} Límite anónimo: un escaneo cada 10 minutos.{% endif %}
                 {% if stats.last_fetch %}Último escaneo: {{ stats.last_fetch.fetched_at|fmt_datetime }}.{% endif %}
             </p>
             <div class="loading-container" role="status" aria-live="polite" hidden>
@@ -26,6 +25,12 @@
         </form>
     </div>
 </section>
+
+{% if fetch_notice %}
+<section class="fetch-result" role="status">
+    <p class="alert-info">{{ fetch_notice }}</p>
+</section>
+{% endif %}
 
 {% if fetch_result %}
 <section class="fetch-result" aria-labelledby="fetch-title">
@@ -62,7 +67,6 @@
     <a class="band" data-cat="{{ slug }}" href="/stories?category={{ slug }}">
         <h3>{{ label }}</h3>
         <span class="band-count">{{ stats.by_category.get(slug, 0) }}</span>
-        <span class="band-go" aria-hidden="true">&rarr;</span>
     </a>
     {% endfor %}
 </section>
@@ -88,7 +92,7 @@
                 {% if featured.score is not none %}<div><dt>Puntos</dt><dd>{{ featured.score|compact }}</dd></div>{% endif %}
                 {% if featured.comment_count is not none %}<div><dt>Comentarios</dt><dd>{{ featured.comment_count|compact }}</dd></div>{% endif %}
             </dl>
-            <span class="featured-cta">Abrir expediente <span aria-hidden="true">&rarr;</span></span>
+            <span class="featured-cta">Abrir expediente</span>
         </div>
     </a>
 </section>

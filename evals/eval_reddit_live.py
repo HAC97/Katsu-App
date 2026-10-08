@@ -1,7 +1,8 @@
 """Periodic eval: does the Reddit scraper still work against the real Reddit?
 
-Not a gate test (network, ~1-3 minutes because anonymous RSS allows ~1 request per
-rate window). Run before shipping and nightly:
+Not a gate test (network, seconds in the happy path: every subreddit goes in a
+single multireddit request; allow ~1 min if a 429 retry kicks in). Run before
+shipping and nightly:
 
     python evals/eval_reddit_live.py
 
@@ -23,7 +24,7 @@ from reddit_fetcher import fetch_reddit, group_subreddits  # noqa: E402
 MIN_POSTS = 30
 MIN_WITH_TEXT = 0.5
 MIN_CATEGORIES = 3
-MAX_SECONDS = 400
+MAX_SECONDS = 90  # one request; margin for a rate-limit retry
 
 
 def main() -> int:
