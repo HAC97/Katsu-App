@@ -2,15 +2,10 @@
 
 Each bug from the design review has a regression test that fails on the old code.
 """
-import os
 import re
-import tempfile
 from pathlib import Path
 
 import pytest
-
-_DB_DIR = tempfile.mkdtemp()
-os.environ["DATABASE_PATH"] = str(Path(_DB_DIR) / "test.db")
 
 from fastapi.testclient import TestClient  # noqa: E402
 
@@ -41,7 +36,18 @@ def _story(n, **over):
 @pytest.fixture(autouse=True)
 def fresh_db():
     database.delete_all_stories()
+    conn = database.get_db()
+    conn.execute("DELETE FROM fetch_log")
+    conn.commit()
+    conn.close()
     database.init_db()
+    yield
+
+
+@pytest.fixture(autouse=True)
+def _anonymous_mode(monkeypatch):
+    """Gate tests assume no OAuth credentials unless a test says otherwise."""
+    monkeypatch.setattr(app_module, "oauth_configured", lambda: False)
     yield
 
 
@@ -309,6 +315,7 @@ def test_fetch_shows_reddit_errors_instead_of_silent_zero(monkeypatch):
 def test_fetch_inserts_new_posts_and_dedupes(monkeypatch):
     post = _story(1, score=None, comment_count=None)
     monkeypatch.setattr(app_module, "fetch_reddit", lambda subs: _fake_outcome(posts=[post]))
+    monkeypatch.setattr(app_module, "FETCH_COOLDOWN_SECONDS", 0)
     assert "1 nuevos" in client.post("/fetch").text
     assert "0 nuevos" in client.post("/fetch").text
     _, total = database.get_stories()
@@ -322,6 +329,47 @@ def test_fetch_partial_failure_keeps_posts_and_logs_partial(monkeypatch):
     html = client.post("/fetch").text
     assert "boom" in html and "1 nuevos" in html
     assert database.get_stats()["last_fetch"]["status"] == "partial"
+
+
+def test_fetch_cooldown_blocks_rapid_rescan(monkeypatch):
+    calls = []
+    monkeypatch.setattr(app_module, "fetch_reddit",
+                        lambda subs: calls.append(1) or _fake_outcome())
+    client.post("/fetch")
+    html = client.post("/fetch").text
+    assert calls == [1], "the second scan must not reach Reddit"
+    assert "Vuelve a intentarlo en" in html
+    assert "Resultado del escaneo" not in html
+
+
+def test_fetch_skips_cooldown_when_oauth_configured(monkeypatch):
+    monkeypatch.setattr(app_module, "oauth_configured", lambda: True)
+    monkeypatch.setattr(app_module, "fetch_reddit", lambda subs: _fake_outcome())
+    first = client.post("/fetch").text
+    second = client.post("/fetch").text
+    assert "Vuelve a intentarlo en" not in first
+    assert "Vuelve a intentarlo en" not in second
+    conn = database.get_db()
+    logs = conn.execute("SELECT COUNT(*) FROM fetch_log").fetchone()[0]
+    conn.close()
+    assert logs == 2, "both scans must reach Reddit in OAuth mode"
+
+
+def test_cooldown_matches_reddit_rate_window():
+    """Regression: a 600 s lock refused scans Reddit accepts after ~60 s."""
+    assert 60 < app_module.FETCH_COOLDOWN_SECONDS <= 90
+
+
+def test_cooldown_remaining_counts_down():
+    from datetime import datetime, timedelta, timezone
+
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    assert app_module.cooldown_remaining(None) == 0
+    remaining = app_module.cooldown_remaining({"fetched_at": now.isoformat(sep=" ")})
+    assert app_module.FETCH_COOLDOWN_SECONDS - 2 <= remaining <= app_module.FETCH_COOLDOWN_SECONDS
+    old = (now - timedelta(seconds=app_module.FETCH_COOLDOWN_SECONDS + 1)).isoformat(sep=" ")
+    assert app_module.cooldown_remaining({"fetched_at": old}) == 0
+    assert app_module.cooldown_remaining({"fetched_at": "basura"}) == 0
 
 
 def test_unknown_score_is_not_rendered_as_zero_points():
@@ -532,3 +580,60 @@ def test_featured_rail_has_dated_facts():
     rail = html[html.index('class="featured-side"'):]
     assert "<dt>Publicado</dt><dd>24/09/2026</dd>" in rail and "<dt>Categoría</dt>" in rail
     assert 'class="stamp"' not in rail, "the hero already carries the stamp"
+
+
+# --- antislop audit 001 regressions -----------------------------------------
+
+def test_no_em_dash_in_templates_css_or_fetcher():
+    for rel in ("templates/index.html", "templates/stories.html", "templates/story_detail.html",
+                "templates/base.html", "static/style.css", "reddit_fetcher.py"):
+        assert "—" not in (ROOT / rel).read_text(encoding="utf-8"), rel
+
+
+def test_scan_button_and_hover_text_meet_contrast():
+    css = (ROOT / "static" / "style.css").read_text(encoding="utf-8")
+    light, dark, _ = _theme_blocks(css)
+    assert _contrast(light["on-scan"], light["scan-bg"]) >= 4.5
+    for cat in ("cat-conspiracy", "cat-horror", "cat-paranormal"):
+        for tok in (light, dark):
+            assert _contrast(tok[cat], tok["bg-card-hover"]) >= 4.5, cat
+
+
+def test_touch_targets_declare_44px_minimum():
+    css = (ROOT / "static" / "style.css").read_text(encoding="utf-8")
+    for selector in (".nav-links a", ".theme-toggle", ".btn-scan", ".link-more", ".seg-item span",
+                     ".checkbox-label", ".pagination .btn", ".btn-sm"):
+        blocks = re.findall(re.escape(selector) + r" \{(.*?)\}", css, re.S)
+        assert any(re.search(r"(min-)?(height|width): 44px", b) for b in blocks), selector
+
+
+def test_scan_dot_blinks_only_while_scanning():
+    css = (ROOT / "static" / "style.css").read_text(encoding="utf-8")
+    assert "animation: blink" in css
+    assert ".btn-scan:disabled::before" in css
+    assert not re.search(r"\.btn-scan::before \{[^}]*animation", css)
+
+
+def test_no_redundant_eyebrows_or_decorative_arrows():
+    pages = "".join((ROOT / "templates" / f).read_text(encoding="utf-8")
+                    for f in ("index.html", "stories.html"))
+    assert 'class="eyebrow"' not in pages
+    assert "&rarr;" not in pages and "band-go" not in pages
+
+
+def test_filter_input_has_no_dead_declarations():
+    css = (ROOT / "static" / "style.css").read_text(encoding="utf-8")
+    block = re.search(r"\.filter-input \{(.*?)\}", css, re.S).group(1)
+    assert block.count("border-radius") == 1
+    assert block.index("border: 2px") < block.index("border-right: 0")
+
+
+def test_design_md_documents_direction():
+    text = (ROOT / "DESIGN.md").read_text(encoding="utf-8")
+    for needle in ("ENERGY", "RHYTHM", "MOTION", "JetBrains Mono", "Motivos"):
+        assert needle in text
+
+
+def test_no_decorative_comment_separators():
+    for rel in ("static/style.css", "reddit_fetcher.py"):
+        assert not re.search(r"(-{6,}|={6,})", (ROOT / rel).read_text(encoding="utf-8")), rel
